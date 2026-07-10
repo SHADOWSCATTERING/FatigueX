@@ -42,10 +42,10 @@ export default function ReassemblyCTA() {
           transition={{ duration: 0.8, delay: 0.4 }}
           className="flex flex-col sm:flex-row items-center gap-6 mb-16"
         >
-          <MagneticButton href="https://advanced2.vercel.app">
+          <MagneticButton href="https://fatigue-x.vercel.app/">
             Launch the Dashboard
           </MagneticButton>
-          <MagneticButton href="https://advanced2.vercel.app/api">
+          <MagneticButton href="https://fatigue-x.vercel.app/api">
             View API Reference
           </MagneticButton>
         </motion.div>
