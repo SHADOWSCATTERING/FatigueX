@@ -29,7 +29,7 @@ import requests
 
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-REQUEST_TIMEOUT_SECONDS = 8
+REQUEST_TIMEOUT_SECONDS = 9
 
 
 def _extract_text_from_response(data: dict) -> str:
@@ -82,7 +82,8 @@ def _call_gemini(analysis: dict, safer_alternatives: list = None) -> dict | None
         ],
         "generationConfig": {
             "responseMimeType": "application/json",
-            "temperature": 0.2
+            "temperature": 0.2,
+            "thinkingConfig": {"thinkingBudget": 0}
         }
     }
     headers = {
@@ -218,7 +219,8 @@ def chat_with_ai(analysis: dict, safer_alternatives: list, history: list, new_me
     payload = {
         "contents": contents,
         "generationConfig": {
-            "temperature": 0.5
+            "temperature": 0.5,
+            "thinkingConfig": {"thinkingBudget": 0}
         }
     }
     
