@@ -51,7 +51,7 @@ export default function Navbar() {
 
         {/* Right: CTA */}
         <div className="flex-1 flex justify-end">
-          <MagneticButton href="https://advanced2.vercel.app" className="text-sm">
+          <MagneticButton href="https://fatigue-x.vercel.app/" className="text-sm">
             Launch Dashboard
           </MagneticButton>
         </div>
