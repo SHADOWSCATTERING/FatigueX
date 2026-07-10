@@ -812,7 +812,9 @@ footer {
 }
 
 .modal-content {
-    background: var(--bg-surface);
+    background: rgba(26, 27, 32, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--border-radius);
     padding: 2rem;
@@ -1275,7 +1277,9 @@ footer {
     z-index: 2000;
 }
 .modal-content {
-    background: var(--surface-color);
+    background: rgba(26, 27, 32, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     padding: 2rem;
     border-radius: var(--border-radius);
     width: 90%;
