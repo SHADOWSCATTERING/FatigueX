@@ -15,7 +15,7 @@ This keeps the system auditable: every number the AI talks about can be
 traced back to a specific rule in fatigue_rules.csv, and the AI cannot
 invent a violation that the engine didn't actually find.
 
-If ANTHROPIC_API_KEY is not set (or the API call fails for any reason -
+If OPENROUTER_API_KEY is not set (or the API call fails for any reason -
 network, rate limit, etc.), the service transparently falls back to a
 template-based explanation generator so the product still works end to
 end for grading/demo purposes. The response always includes a `source`
@@ -27,19 +27,16 @@ import os
 import json
 import requests
 
-ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-ANTHROPIC_VERSION = "2023-06-01"
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it")
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 REQUEST_TIMEOUT_SECONDS = 15
 
 
 def _extract_text_from_response(data: dict) -> str:
-    """Extract the actual text from an Anthropic Messages API response.
-    The response has a `content` array of blocks; we want the first `text` block."""
-    for block in data.get("content", []):
-        if block.get("type") == "text":
-            return block.get("text", "").strip()
+    """Extract the actual text from an OpenRouter (OpenAI-compatible) API response."""
+    choices = data.get("choices", [])
+    if choices:
+        return choices[0].get("message", {}).get("content", "").strip()
     return ""
 
 SYSTEM_PROMPT = (
@@ -63,37 +60,36 @@ SYSTEM_PROMPT = (
 )
 
 
-def _call_anthropic(analysis: dict, safer_alternatives: list = None) -> dict | None:
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+def _call_openrouter(analysis: dict, safer_alternatives: list = None) -> dict | None:
+    api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
     if not api_key:
         return None
 
-    headers = {
-        "content-type": "application/json",
-        "x-api-key": api_key,
-        "anthropic-version": ANTHROPIC_VERSION,
-    }
-
-    user_content = json.dumps({
-        "fatigue_analysis": analysis,
-        "safer_alternatives": safer_alternatives or [],
-    }, default=str)
-
+    url = "https://openrouter.ai/api/v1/chat/completions"
     payload = {
-        "model": ANTHROPIC_MODEL,
-        "max_tokens": 1024,
-        "system": SYSTEM_PROMPT,
+        "model": OPENROUTER_MODEL,
         "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
             {
-                "role": "user",
-                "content": user_content,
+                "role": "user", 
+                "content": "Context Data:\n" + json.dumps({
+                    "fatigue_analysis": analysis,
+                    "safer_alternatives": safer_alternatives or [],
+                }, default=str)
             }
         ],
         "temperature": 0.2,
+        "response_format": {"type": "json_object"}
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost:5000",
+        "X-Title": "FatigueX"
     }
 
     try:
-        resp = requests.post(ANTHROPIC_API_URL, headers=headers, json=payload,
+        resp = requests.post(url, headers=headers, json=payload,
                               timeout=REQUEST_TIMEOUT_SECONDS)
         resp.raise_for_status()
         data = resp.json()
@@ -103,7 +99,7 @@ def _call_anthropic(analysis: dict, safer_alternatives: list = None) -> dict | N
         parsed["source"] = "ai"
         return parsed
     except Exception as exc:
-        print(f"[ai_service] Anthropic API call failed: {exc}")
+        print(f"[ai_service] OpenRouter API call failed: {exc}")
         return None
 
 
@@ -161,7 +157,7 @@ def _fallback_explanation(analysis: dict, safer_alternatives: list = None) -> di
 def explain_fatigue_risk(analysis: dict, safer_alternatives: list = None) -> dict:
     """Main entry point used by the API layer. Returns a dict with
     explanation / most_urgent_issue / recommendation / source."""
-    ai_result = _call_anthropic(analysis, safer_alternatives)
+    ai_result = _call_openrouter(analysis, safer_alternatives)
     if ai_result is not None:
         return ai_result
     return _fallback_explanation(analysis, safer_alternatives)
@@ -179,52 +175,55 @@ def explain_conflict(conflict_detail: dict) -> dict:
 
 
 def is_ai_configured() -> bool:
-    return bool(os.environ.get("ANTHROPIC_API_KEY"))
+    return bool(os.environ.get("OPENROUTER_API_KEY"))
 
 
 def chat_with_ai(analysis: dict, safer_alternatives: list, history: list, new_message: str) -> str:
     """Multi-turn conversation about the fatigue analysis."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
     if not api_key:
-        return "I'm sorry, the AI chat feature requires an active Anthropic API key."
+        return "I'm sorry, the AI chat feature requires an OpenRouter API key."
 
     system_prompt = (
         "You are a helpful workforce safety assistant embedded in a shift-planning tool. "
         "You help shift managers understand fatigue risks and suggest compliant schedules. "
-        "Keep answers concise and professional. Do NOT invent or contradict any data from the provided JSON.\n\n"
-        "Context Data:\n" + json.dumps({
-            "fatigue_analysis": analysis,
-            "safer_alternatives": safer_alternatives or [],
-        }, default=str)
+        "Keep answers concise and professional. Do NOT invent or contradict any data from the provided JSON."
     )
-
-    # Build Anthropic messages array from history + new message
-    messages = []
+    
+    context_str = json.dumps({
+        "fatigue_analysis": analysis,
+        "safer_alternatives": safer_alternatives or [],
+    }, default=str)
+    
+    messages = [
+        {"role": "system", "content": f"System Instructions: {system_prompt}\n\nContext Data:\n{context_str}"}
+    ]
+    
     for msg in history:
-        role = "assistant" if msg["role"] == "assistant" else "user"
-        messages.append({"role": role, "content": msg["content"]})
+        messages.append({"role": msg["role"], "content": msg["content"]})
+        
     messages.append({"role": "user", "content": new_message})
 
-    headers = {
-        "content-type": "application/json",
-        "x-api-key": api_key,
-        "anthropic-version": ANTHROPIC_VERSION,
-    }
-
     payload = {
-        "model": ANTHROPIC_MODEL,
-        "max_tokens": 1024,
-        "system": system_prompt,
+        "model": OPENROUTER_MODEL,
         "messages": messages,
         "temperature": 0.5,
     }
-
+    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost:5000",
+        "X-Title": "FatigueX"
+    }
+    
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    
     import time
     max_retries = 1
     for attempt in range(max_retries):
         try:
-            resp = requests.post(ANTHROPIC_API_URL, headers=headers, json=payload,
-                                  timeout=REQUEST_TIMEOUT_SECONDS)
+            resp = requests.post(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT_SECONDS)
             resp.raise_for_status()
             data = resp.json()
             return _extract_text_from_response(data)

@@ -23,14 +23,14 @@ class TestAIFallback(unittest.TestCase):
 
     def test_ai_fails_gracefully(self):
         # Force API key to be invalid or just let _call_anthropic fail
-        original_key = ai_service.ANTHROPIC_API_KEY
+        original_key = ai_service.OPENROUTER_API_KEY
         try:
-            ai_service.ANTHROPIC_API_KEY = "invalid_key"
+            ai_service.OPENROUTER_API_KEY = "invalid_key"
             analysis = {"employee_name": "Test Emp", "risk_level": "Low", "violations": []}
             res = ai_service.explain_fatigue_risk(analysis)
             self.assertEqual(res["source"], "fallback_template")
         finally:
-            ai_service.ANTHROPIC_API_KEY = original_key
+            ai_service.OPENROUTER_API_KEY = original_key
 
 if __name__ == "__main__":
     unittest.main()
