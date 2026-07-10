@@ -839,7 +839,18 @@ def generate_schedule():
         
     return jsonify(result)
 
-
+@app.route("/api/models", methods=["GET"])
+def list_models():
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        return jsonify({"error": "No API key"})
+    import requests
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+        resp = requests.get(url)
+        return jsonify(resp.json())
+    except Exception as e:
+        return jsonify({"error": str(e)})
 # ---------------------------------------------------------------------
 # AI Chat
 # ---------------------------------------------------------------------

@@ -27,7 +27,7 @@ import os
 import json
 import requests
 
-GEMINI_MODEL = "gemini-pro"
+GEMINI_MODEL = "gemini-1.5-flash"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 REQUEST_TIMEOUT_SECONDS = 8
 
@@ -57,7 +57,7 @@ def _call_gemini(analysis: dict, safer_alternatives: list = None) -> dict | None
     if not api_key:
         return None
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1/models/{GEMINI_MODEL}:generateContent?key={api_key}"
     payload = {
         "contents": [
             {
@@ -214,7 +214,7 @@ def chat_with_ai(analysis: dict, safer_alternatives: list, history: list, new_me
         "content-type": "application/json",
     }
     
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1/models/{GEMINI_MODEL}:generateContent?key={api_key}"
     
     import time
     max_retries = 1
