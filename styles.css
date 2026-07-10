@@ -865,7 +865,9 @@ footer {
         top: 70px;
         left: 0;
         width: 100%;
-        background: var(--surface-color);
+        background: rgba(26, 27, 32, 0.95);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
         flex-direction: column;
         padding: 2rem;
         text-align: center;

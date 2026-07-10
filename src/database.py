@@ -9,6 +9,9 @@ import os
 import psycopg2
 import psycopg2.extras
 from contextlib import contextmanager
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
