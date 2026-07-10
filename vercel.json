@@ -1,11 +1,6 @@
 {
   "version": 2,
   "cleanUrls": true,
-  "functions": {
-    "app/app.py": {
-      "maxDuration": 60
-    }
-  },
   "builds": [
     {
       "src": "app/app.py",

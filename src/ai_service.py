@@ -29,7 +29,7 @@ import requests
 
 GEMINI_MODEL = "gemini-1.5-flash"
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-REQUEST_TIMEOUT_SECONDS = 25
+REQUEST_TIMEOUT_SECONDS = 8
 
 SYSTEM_PROMPT = (
     "You are a workforce safety assistant embedded in a shift-planning tool. "
@@ -217,7 +217,7 @@ def chat_with_ai(analysis: dict, safer_alternatives: list, history: list, new_me
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={api_key}"
     
     import time
-    max_retries = 3
+    max_retries = 1
     for attempt in range(max_retries):
         try:
             resp = requests.post(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT_SECONDS)
