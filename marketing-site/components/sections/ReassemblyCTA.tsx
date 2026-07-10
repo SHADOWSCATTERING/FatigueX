@@ -45,9 +45,6 @@ export default function ReassemblyCTA() {
           <MagneticButton href="https://fatigue-x.vercel.app/">
             Launch the Dashboard
           </MagneticButton>
-          <MagneticButton href="https://github.com/SHADOWSCATTERING/FatigueX-google-oauth-sync---Copy#7-api-reference">
-            View API Reference
-          </MagneticButton>
         </motion.div>
 
         <motion.div
