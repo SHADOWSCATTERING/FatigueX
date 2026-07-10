@@ -35,10 +35,11 @@ from src.fatigue_engine import FatigueEngine
 from src.ai_service import explain_fatigue_risk, explain_conflict, is_ai_configured, chat_with_ai
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "super-secret-default-key")
-app.config["SESSION_COOKIE_SECURE"] = True
+secret = os.environ.get("FLASK_SECRET_KEY", "").strip()
+app.config["SECRET_KEY"] = secret if secret else "super-secret-default-key"
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_ENV") == "production"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax" if os.environ.get("FLASK_ENV") != "production" else "None"
 app.permanent_session_lifetime = timedelta(days=7)
 
 try:
