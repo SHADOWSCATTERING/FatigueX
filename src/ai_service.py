@@ -27,9 +27,21 @@ import os
 import json
 import requests
 
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 REQUEST_TIMEOUT_SECONDS = 8
+
+
+def _extract_text_from_response(data: dict) -> str:
+    """Extract the actual text from a Gemini response.
+    Thinking models (2.5+) return multiple parts: thinking first, then the
+    actual answer. We want the last 'text' part that contains the real output."""
+    parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+    # Find the last part that has a 'text' field (skip 'thought' parts)
+    for part in reversed(parts):
+        if "text" in part:
+            return part["text"].strip()
+    return ""
 
 SYSTEM_PROMPT = (
     "You are a workforce safety assistant embedded in a shift-planning tool. "
@@ -82,7 +94,7 @@ def _call_gemini(analysis: dict, safer_alternatives: list = None) -> dict | None
                               timeout=REQUEST_TIMEOUT_SECONDS)
         resp.raise_for_status()
         data = resp.json()
-        raw_text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+        raw_text = _extract_text_from_response(data)
         raw_text = raw_text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
         parsed = json.loads(raw_text)
         parsed["source"] = "ai"
@@ -223,7 +235,7 @@ def chat_with_ai(analysis: dict, safer_alternatives: list, history: list, new_me
             resp = requests.post(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT_SECONDS)
             resp.raise_for_status()
             data = resp.json()
-            return data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+            return _extract_text_from_response(data)
         except requests.exceptions.HTTPError as he:
             print(f"[ai_service] HTTP Error: {he.response.text}")
             if attempt < max_retries - 1:
