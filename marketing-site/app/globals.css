@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #000000;
+  --foreground: rgba(255, 255, 255, 0.9);
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-inter), sans-serif;
+  overflow-x: hidden;
+  /* Active Theory noise overlay trick */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  background-blend-mode: overlay;
+  background-size: 150px;
+  background-repeat: repeat;
+  background-attachment: fixed;
+  /* Very low opacity grain */
+}
+
+/* Hide scrollbar for seamless look */
+::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .glass-panel {
+    position: relative;
+    background-color: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: inset 0px 0px 40px rgba(255, 255, 255, 0.02);
+    z-index: 1;
+  }
+  
+  .glass-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background-image: url("https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80");
+    background-size: cover;
+    background-position: center;
+    filter: grayscale(100%) contrast(1.5) brightness(0.9);
+    mix-blend-mode: soft-light;
+    opacity: 0.25;
+    pointer-events: none;
+  }
+
+  .glass-edge {
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+  }
+}
