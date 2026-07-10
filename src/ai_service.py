@@ -27,7 +27,7 @@ import os
 import json
 import requests
 
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 REQUEST_TIMEOUT_SECONDS = 8
 
