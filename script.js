@@ -860,7 +860,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Render AI status
             if (data.ai_configured) {
                 aiStatusDot.className = 'status-dot active';
-                aiStatusText.textContent = 'Gemini AI Connected';
+                aiStatusText.textContent = 'Claude AI Connected';
             } else {
                 aiStatusDot.className = 'status-dot warning';
                 aiStatusText.textContent = 'Template Fallback (No Key)';
@@ -1047,7 +1047,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const ai = riskData.ai_explanation || {};
         
         if (ai.source === 'ai') {
-            detailAiSource.textContent = 'Google Gemini';
+            detailAiSource.textContent = 'Anthropic Claude';
             detailAiSource.className = 'ai-source-badge ai';
         } else {
             detailAiSource.textContent = 'Rule Explainer (Fallback)';
@@ -1188,7 +1188,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // AI explanation of projected risk
             const ai = data.ai_explanation || {};
             if (ai.source === 'ai') {
-                valAiSource.textContent = 'Google Gemini';
+                valAiSource.textContent = 'Anthropic Claude';
                 valAiSource.className = 'ai-source-badge ai';
             } else {
                 valAiSource.textContent = 'Rule Explainer (Fallback)';

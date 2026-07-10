@@ -27,20 +27,19 @@ import os
 import json
 import requests
 
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-REQUEST_TIMEOUT_SECONDS = 9
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+ANTHROPIC_VERSION = "2023-06-01"
+REQUEST_TIMEOUT_SECONDS = 15
 
 
 def _extract_text_from_response(data: dict) -> str:
-    """Extract the actual text from a Gemini response.
-    Thinking models (2.5+) return multiple parts: thinking first, then the
-    actual answer. We want the last 'text' part that contains the real output."""
-    parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
-    # Find the last part that has a 'text' field (skip 'thought' parts)
-    for part in reversed(parts):
-        if "text" in part:
-            return part["text"].strip()
+    """Extract the actual text from an Anthropic Messages API response.
+    The response has a `content` array of blocks; we want the first `text` block."""
+    for block in data.get("content", []):
+        if block.get("type") == "text":
+            return block.get("text", "").strip()
     return ""
 
 SYSTEM_PROMPT = (
@@ -64,34 +63,37 @@ SYSTEM_PROMPT = (
 )
 
 
-def _call_gemini(analysis: dict, safer_alternatives: list = None) -> dict | None:
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+def _call_anthropic(analysis: dict, safer_alternatives: list = None) -> dict | None:
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
         return None
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={api_key}"
-    payload = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": f"System Instructions: {SYSTEM_PROMPT}\n\nContext Data:\n" + json.dumps({
-                    "fatigue_analysis": analysis,
-                    "safer_alternatives": safer_alternatives or [],
-                }, default=str)}]
-            }
-        ],
-        "generationConfig": {
-            "responseMimeType": "application/json",
-            "temperature": 0.2,
-            "thinkingConfig": {"thinkingBudget": 0}
-        }
-    }
     headers = {
         "content-type": "application/json",
+        "x-api-key": api_key,
+        "anthropic-version": ANTHROPIC_VERSION,
+    }
+
+    user_content = json.dumps({
+        "fatigue_analysis": analysis,
+        "safer_alternatives": safer_alternatives or [],
+    }, default=str)
+
+    payload = {
+        "model": ANTHROPIC_MODEL,
+        "max_tokens": 1024,
+        "system": SYSTEM_PROMPT,
+        "messages": [
+            {
+                "role": "user",
+                "content": user_content,
+            }
+        ],
+        "temperature": 0.2,
     }
 
     try:
-        resp = requests.post(url, headers=headers, json=payload,
+        resp = requests.post(ANTHROPIC_API_URL, headers=headers, json=payload,
                               timeout=REQUEST_TIMEOUT_SECONDS)
         resp.raise_for_status()
         data = resp.json()
@@ -101,7 +103,7 @@ def _call_gemini(analysis: dict, safer_alternatives: list = None) -> dict | None
         parsed["source"] = "ai"
         return parsed
     except Exception as exc:
-        print(f"[ai_service] Gemini API call failed: {exc}")
+        print(f"[ai_service] Anthropic API call failed: {exc}")
         return None
 
 
@@ -159,7 +161,7 @@ def _fallback_explanation(analysis: dict, safer_alternatives: list = None) -> di
 def explain_fatigue_risk(analysis: dict, safer_alternatives: list = None) -> dict:
     """Main entry point used by the API layer. Returns a dict with
     explanation / most_urgent_issue / recommendation / source."""
-    ai_result = _call_gemini(analysis, safer_alternatives)
+    ai_result = _call_anthropic(analysis, safer_alternatives)
     if ai_result is not None:
         return ai_result
     return _fallback_explanation(analysis, safer_alternatives)
@@ -177,64 +179,52 @@ def explain_conflict(conflict_detail: dict) -> dict:
 
 
 def is_ai_configured() -> bool:
-    return bool(os.environ.get("GEMINI_API_KEY"))
+    return bool(os.environ.get("ANTHROPIC_API_KEY"))
 
 
 def chat_with_ai(analysis: dict, safer_alternatives: list, history: list, new_message: str) -> str:
     """Multi-turn conversation about the fatigue analysis."""
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
-        return "I'm sorry, the AI chat feature requires an active Gemini API key."
+        return "I'm sorry, the AI chat feature requires an active Anthropic API key."
 
     system_prompt = (
         "You are a helpful workforce safety assistant embedded in a shift-planning tool. "
         "You help shift managers understand fatigue risks and suggest compliant schedules. "
-        "Keep answers concise and professional. Do NOT invent or contradict any data from the provided JSON."
+        "Keep answers concise and professional. Do NOT invent or contradict any data from the provided JSON.\n\n"
+        "Context Data:\n" + json.dumps({
+            "fatigue_analysis": analysis,
+            "safer_alternatives": safer_alternatives or [],
+        }, default=str)
     )
-    
-    context_str = json.dumps({
-        "fatigue_analysis": analysis,
-        "safer_alternatives": safer_alternatives or [],
-    }, default=str)
-    
-    first_msg_text = f"System Instructions: {system_prompt}\n\nContext Data:\n{context_str}\n\n"
-    
-    contents = []
-    if not history:
-        contents.append({"role": "user", "parts": [{"text": first_msg_text + f"User: {new_message}"}]})
-    else:
-        first_user_msg = history[0]
-        contents.append({
-            "role": "user",
-            "parts": [{"text": first_msg_text + f"User: {first_user_msg['content']}"}]
-        })
-        for msg in history[1:]:
-            role = "model" if msg["role"] == "assistant" else "user"
-            contents.append({
-                "role": role,
-                "parts": [{"text": msg["content"]}]
-            })
-        contents.append({"role": "user", "parts": [{"text": new_message}]})
 
-    payload = {
-        "contents": contents,
-        "generationConfig": {
-            "temperature": 0.5,
-            "thinkingConfig": {"thinkingBudget": 0}
-        }
-    }
-    
+    # Build Anthropic messages array from history + new message
+    messages = []
+    for msg in history:
+        role = "assistant" if msg["role"] == "assistant" else "user"
+        messages.append({"role": role, "content": msg["content"]})
+    messages.append({"role": "user", "content": new_message})
+
     headers = {
         "content-type": "application/json",
+        "x-api-key": api_key,
+        "anthropic-version": ANTHROPIC_VERSION,
     }
-    
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={api_key}"
-    
+
+    payload = {
+        "model": ANTHROPIC_MODEL,
+        "max_tokens": 1024,
+        "system": system_prompt,
+        "messages": messages,
+        "temperature": 0.5,
+    }
+
     import time
     max_retries = 1
     for attempt in range(max_retries):
         try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=REQUEST_TIMEOUT_SECONDS)
+            resp = requests.post(ANTHROPIC_API_URL, headers=headers, json=payload,
+                                  timeout=REQUEST_TIMEOUT_SECONDS)
             resp.raise_for_status()
             data = resp.json()
             return _extract_text_from_response(data)

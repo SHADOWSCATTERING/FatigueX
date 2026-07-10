@@ -841,16 +841,17 @@ def generate_schedule():
 
 @app.route("/api/models", methods=["GET"])
 def list_models():
-    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
         return jsonify({"error": "No API key"})
-    import requests
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
-        resp = requests.get(url)
-        return jsonify(resp.json())
-    except Exception as e:
-        return jsonify({"error": str(e)})
+    # Anthropic doesn't have a public model-listing endpoint;
+    # return a curated list of available Claude models.
+    models = [
+        {"id": "claude-sonnet-4-20250514", "name": "Claude Sonnet 4", "description": "Best balance of speed and intelligence"},
+        {"id": "claude-haiku-4-20250414", "name": "Claude Haiku 4", "description": "Fastest, most cost-effective"},
+        {"id": "claude-opus-4-20250514", "name": "Claude Opus 4", "description": "Most capable for complex tasks"},
+    ]
+    return jsonify({"models": models})
 # ---------------------------------------------------------------------
 # AI Chat
 # ---------------------------------------------------------------------
