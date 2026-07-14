@@ -973,13 +973,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         loader.classList.remove('hidden');
 
         try {
-            // Fetch fatigue risk detail
-            const riskRes = await fetchWithTimeout(`${API_BASE}/api/employees/${empId}/fatigue-risk`, { timeout: 15000 });
+            // Fetch both endpoints concurrently to save time, and increase timeout to 30000 to prevent AI timeouts
+            const [riskRes, scheduleRes] = await Promise.all([
+                fetchWithTimeout(`${API_BASE}/api/employees/${empId}/fatigue-risk`, { timeout: 30000 }),
+                fetchWithTimeout(`${API_BASE}/api/employees/${empId}/schedule`, { timeout: 30000 })
+            ]);
+
             if (!riskRes.ok) throw new Error("Failed to load fatigue risk");
             const riskData = await riskRes.json();
 
-            // Fetch schedule
-            const scheduleRes = await fetchWithTimeout(`${API_BASE}/api/employees/${empId}/schedule`, { timeout: 15000 });
             if (!scheduleRes.ok) throw new Error("Failed to load employee schedule");
             const scheduleData = await scheduleRes.json();
 
@@ -987,7 +989,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             panelDetailsContent.classList.remove('hidden');
 
             renderEmployeeDetails(riskData, scheduleData);
-            
 
         } catch (err) {
             console.error(err);
