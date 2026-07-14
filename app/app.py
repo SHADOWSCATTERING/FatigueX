@@ -745,8 +745,8 @@ def employee_fatigue_risk(employee_id):
 
     if not start_date and not end_date:
         now = datetime.now(timezone.utc)
-        start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
-        end_date = (now + timedelta(days=30)).strftime("%Y-%m-%d")
+        start_date = (now - timedelta(days=90)).strftime("%Y-%m-%d")
+        end_date = (now + timedelta(days=90)).strftime("%Y-%m-%d")
 
     owner = get_owner()
     eng = FatigueEngine(owner_email=owner)
@@ -779,8 +779,8 @@ def employee_schedule(employee_id):
 
     if not start_date and not end_date:
         now = datetime.now(timezone.utc)
-        start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
-        end_date = (now + timedelta(days=30)).strftime("%Y-%m-%d")
+        start_date = (now - timedelta(days=90)).strftime("%Y-%m-%d")
+        end_date = (now + timedelta(days=90)).strftime("%Y-%m-%d")
 
     owner = get_owner()
     eng = FatigueEngine(owner_email=owner)
