@@ -743,6 +743,11 @@ def employee_fatigue_risk(employee_id):
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
 
+    if not start_date and not end_date:
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+        end_date = (now + timedelta(days=30)).strftime("%Y-%m-%d")
+
     owner = get_owner()
     eng = FatigueEngine(owner_email=owner)
     try:
@@ -771,6 +776,12 @@ def employee_fatigue_risk(employee_id):
 def employee_schedule(employee_id):
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
+
+    if not start_date and not end_date:
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+        end_date = (now + timedelta(days=30)).strftime("%Y-%m-%d")
+
     owner = get_owner()
     eng = FatigueEngine(owner_email=owner)
     try:
