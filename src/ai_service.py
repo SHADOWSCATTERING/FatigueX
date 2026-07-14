@@ -29,7 +29,7 @@ import requests
 
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-REQUEST_TIMEOUT_SECONDS = 15
+REQUEST_TIMEOUT_SECONDS = 25
 
 
 def _extract_text_from_response(data: dict) -> str:
@@ -48,15 +48,15 @@ SYSTEM_PROMPT = (
     "1) Explain, in 2-4 sentences using simple, easily understood English that a "
     "non-technical shift manager would understand, why this employee's schedule is risky right now.\n"
     "2) Describe the single most urgent issue first. Write this as a normal English sentence. "
-    "Do NOT use bullet points, numbering, or markdown formatting (e.g., do not output '--1').\n"
+    "Do NOT use bullet points, numbering, or markdown formatting.\n"
     "3) If safer_alternatives are provided, briefly recommend one and say why. "
     "If NO safer_alternatives are provided but there ARE violations, suggest a "
     "practical action the manager can take (e.g. adjust shift timing, add a rest day). "
     "NEVER say 'no alternatives were provided' — always give actionable advice in simple English.\n"
     "Keep the tone calm and factual, never alarmist. If the data shows no "
     "violations, say clearly that the schedule looks safe. Respond with ONLY a "
-    "JSON object (no markdown fences, no preamble) with this exact shape: "
-    '{"explanation": "...", "most_urgent_issue": "...", "recommendation": "..."}'
+    "raw JSON object containing exactly these three string keys (do not add any other keys): "
+    "'explanation', 'most_urgent_issue', and 'recommendation'."
 )
 
 
