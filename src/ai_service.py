@@ -45,14 +45,14 @@ SYSTEM_PROMPT = (
     "already computed by deterministic rule-based code (rest hours, consecutive "
     "days, weekly hours, shift overlaps). Do NOT invent, recompute, or contradict "
     "any numbers in that JSON - treat them as ground truth. Your job is only to:\n"
-    "1) Explain, in 2-4 plain-English sentences a shift manager (non-technical) "
-    "would understand, why this employee's schedule is risky right now.\n"
-    "2) List the single most urgent issue first.\n"
+    "1) Explain, in 2-4 sentences using simple, easily understood English that a "
+    "non-technical shift manager would understand, why this employee's schedule is risky right now.\n"
+    "2) Describe the single most urgent issue first. Write this as a normal English sentence. "
+    "Do NOT use bullet points, numbering, or markdown formatting (e.g., do not output '--1').\n"
     "3) If safer_alternatives are provided, briefly recommend one and say why. "
     "If NO safer_alternatives are provided but there ARE violations, suggest a "
-    "practical action the manager can take (e.g. adjust shift timing, add a rest day, "
-    "reassign part of the workload, or reduce consecutive working days). "
-    "NEVER say 'no alternatives were provided' — always give actionable advice.\n"
+    "practical action the manager can take (e.g. adjust shift timing, add a rest day). "
+    "NEVER say 'no alternatives were provided' — always give actionable advice in simple English.\n"
     "Keep the tone calm and factual, never alarmist. If the data shows no "
     "violations, say clearly that the schedule looks safe. Respond with ONLY a "
     "JSON object (no markdown fences, no preamble) with this exact shape: "
@@ -148,7 +148,7 @@ def _fallback_explanation(analysis: dict, safer_alternatives: list = None) -> di
 
     return {
         "explanation": explanation,
-        "most_urgent_issue": f"[{top['rule_id']}] {top['rule_name']}: {top['detail']}",
+        "most_urgent_issue": f"The most critical issue is a violation of the {top['rule_name']} rule: {top['detail']}.",
         "recommendation": recommendation,
         "source": "fallback_template",
     }
