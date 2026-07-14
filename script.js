@@ -967,16 +967,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             loader.id = 'details-loader';
             loader.style.textAlign = 'center';
             loader.style.padding = '5rem 0';
-            loader.innerHTML = `<div class="loading-spinner">Analyzing fatigue risk profile...</div>`;
+            loader.innerHTML = `<div class="loading-spinner">Loading employee profile...</div>`;
             panelDetailsContent.parentNode.appendChild(loader);
         }
         loader.classList.remove('hidden');
 
         try {
-            // Fetch both endpoints concurrently to save time, and increase timeout to 30000 to prevent AI timeouts
+            // Fetch risk data + schedule concurrently (risk endpoint is now INSTANT - no AI call)
             const [riskRes, scheduleRes] = await Promise.all([
-                fetchWithTimeout(`${API_BASE}/api/employees/${empId}/fatigue-risk`, { timeout: 30000 }),
-                fetchWithTimeout(`${API_BASE}/api/employees/${empId}/schedule`, { timeout: 30000 })
+                fetchWithTimeout(`${API_BASE}/api/employees/${empId}/fatigue-risk`, { timeout: 15000 }),
+                fetchWithTimeout(`${API_BASE}/api/employees/${empId}/schedule`, { timeout: 15000 })
             ]);
 
             if (!riskRes.ok) throw new Error("Failed to load fatigue risk");
@@ -988,7 +988,42 @@ document.addEventListener('DOMContentLoaded', async () => {
             loader.classList.add('hidden');
             panelDetailsContent.classList.remove('hidden');
 
+            // Render immediately with score, violations, schedule (ai_explanation is null)
             renderEmployeeDetails(riskData, scheduleData);
+
+            // Now fire the AI explanation request in the background
+            // Show loading state in the AI section
+            detailAiSource.textContent = 'Loading...';
+            detailAiSource.className = 'ai-source-badge';
+            detailAiExplanation.textContent = 'Generating recommendations and analyzing most urgent issues...';
+            detailAiExplanation.style.fontStyle = 'italic';
+            detailAiExplanation.style.opacity = '0.7';
+            groupAiUrgent.classList.add('hidden');
+            groupAiRec.classList.add('hidden');
+
+            // Fire async AI request — don't await it before showing the profile
+            const aiRequestEmpId = empId; // capture to check for stale responses
+            fetchWithTimeout(`${API_BASE}/api/employees/${empId}/fatigue-risk/ai-explanation`, { timeout: 30000 })
+                .then(res => {
+                    if (!res.ok) throw new Error("AI explanation failed");
+                    return res.json();
+                })
+                .then(aiData => {
+                    // Only update if we're still viewing the same employee
+                    if (selectedEmpId !== aiRequestEmpId) return;
+                    const ai = aiData.ai_explanation || {};
+                    renderAiExplanation(ai);
+                })
+                .catch(err => {
+                    console.warn("AI explanation failed, using fallback:", err);
+                    if (selectedEmpId !== aiRequestEmpId) return;
+                    // Show a graceful fallback message
+                    detailAiExplanation.textContent = 'AI explanation is temporarily unavailable. The fatigue scores and violations shown above are accurate.';
+                    detailAiExplanation.style.fontStyle = 'normal';
+                    detailAiExplanation.style.opacity = '1';
+                    detailAiSource.textContent = 'Unavailable';
+                    detailAiSource.className = 'ai-source-badge';
+                });
 
         } catch (err) {
             console.error(err);
@@ -997,6 +1032,38 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert("Error loading employee fatigue data. Please try again.");
         }
     }
+
+    function renderAiExplanation(ai) {
+        // Reset loading styles
+        detailAiExplanation.style.fontStyle = 'normal';
+        detailAiExplanation.style.opacity = '1';
+
+        if (ai.source === 'ai') {
+            detailAiSource.textContent = 'Google Gemma 4';
+            detailAiSource.className = 'ai-source-badge ai';
+        } else {
+            detailAiSource.textContent = 'Rule Explainer (Fallback)';
+            detailAiSource.className = 'ai-source-badge';
+        }
+        
+        detailAiExplanation.textContent = ai.explanation || 'No explanation available.';
+
+        if (ai.most_urgent_issue && ai.most_urgent_issue !== 'None detected.') {
+            groupAiUrgent.classList.remove('hidden');
+            detailAiUrgent.textContent = ai.most_urgent_issue;
+        } else {
+            groupAiUrgent.classList.add('hidden');
+        }
+
+        if (ai.recommendation) {
+            groupAiRec.classList.remove('hidden');
+            detailAiRecommendation.textContent = ai.recommendation;
+        } else {
+            groupAiRec.classList.remove('hidden');
+            detailAiRecommendation.textContent = 'No changes needed. Continue monitoring as new shifts are added.';
+        }
+    }
+
 
     function renderEmployeeDetails(riskData, scheduleData) {
         const emp = scheduleData.employee;
@@ -1044,34 +1111,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
 
-        // Render AI explanation from riskData
-        const ai = riskData.ai_explanation || {};
-        
-        if (ai.source === 'ai') {
-            detailAiSource.textContent = 'Google Gemma 4';
-            detailAiSource.className = 'ai-source-badge ai';
-        } else {
-            detailAiSource.textContent = 'Rule Explainer (Fallback)';
-            detailAiSource.className = 'ai-source-badge';
-        }
-        
-        detailAiExplanation.textContent = ai.explanation || 'No explanation available.';
-
-        if (ai.most_urgent_issue && ai.most_urgent_issue !== 'None detected.') {
-            groupAiUrgent.classList.remove('hidden');
-            detailAiUrgent.textContent = ai.most_urgent_issue;
-        } else {
-            groupAiUrgent.classList.add('hidden');
-        }
-
-        if (ai.recommendation) {
-            groupAiRec.classList.remove('hidden');
-            detailAiRecommendation.textContent = ai.recommendation;
-        } else {
-            groupAiRec.classList.remove('hidden');
-            detailAiRecommendation.textContent = 'No changes needed. Continue monitoring as new shifts are added.';
-        }
-
+        // AI explanation is loaded asynchronously by selectEmployee() — not rendered here
 
         // Reset AI Chat
         aiChatHistory = [];

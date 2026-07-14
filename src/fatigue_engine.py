@@ -475,13 +475,15 @@ class FatigueEngine:
 
     # ---------- safer-alternative suggestion (rule-based) ----------
     def suggest_safer_alternatives(self, employee_id: str, shift_date: str, start_time: str,
-                                    end_time: str, shift_type: str = None, max_options: int = 3) -> list:
+                                    end_time: str, shift_type: str = None, max_options: int = 3,
+                                    employee: dict = None, existing_shifts: list = None) -> list:
         """Find up to `max_options` alternative shift timings that result in a lower
         overall fatigue score for this employee. This is intentionally simple/greedy -
         good enough for a capstone-level suggestion engine."""
         candidates = []
         base_date = datetime.strptime(shift_date, "%Y-%m-%d").date()
-        employee = self.get_employee(employee_id)
+        if employee is None:
+            employee = self.get_employee(employee_id)
 
         option_specs = [
             ("Push start time back by 2 hours", 0, 2, 0),
@@ -506,7 +508,7 @@ class FatigueEngine:
                 new_end_str = new_end_dt.strftime("%H:%M")
 
                 check = self.validate_new_shift(
-                    employee_id, new_date.isoformat(), new_start_str, new_end_str, shift_type, employee, None
+                    employee_id, new_date.isoformat(), new_start_str, new_end_str, shift_type, employee, existing_shifts
                 )
                 if check.get("safe_to_assign"):
                     candidates.append({
