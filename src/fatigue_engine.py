@@ -482,7 +482,6 @@ class FatigueEngine:
         candidates = []
         base_date = datetime.strptime(shift_date, "%Y-%m-%d").date()
         employee = self.get_employee(employee_id)
-        base_shifts = self.get_shifts_for_employee(employee_id)
 
         option_specs = [
             ("Push start time back by 2 hours", 0, 2, 0),
@@ -507,7 +506,7 @@ class FatigueEngine:
                 new_end_str = new_end_dt.strftime("%H:%M")
 
                 check = self.validate_new_shift(
-                    employee_id, new_date.isoformat(), new_start_str, new_end_str, shift_type, employee, base_shifts
+                    employee_id, new_date.isoformat(), new_start_str, new_end_str, shift_type, employee, None
                 )
                 if check.get("safe_to_assign"):
                     candidates.append({
