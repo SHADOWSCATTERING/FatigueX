@@ -737,9 +737,9 @@ def list_fatigue_rules():
 # ---------------------------------------------------------------------
 @app.route("/api/employees/<employee_id>/fatigue-risk", methods=["GET"])
 def employee_fatigue_risk(employee_id):
-    """Full fatigue-risk analysis for one employee, with an AI-generated
-    plain-English explanation and (if risky) rule-based safer-alternative
-    suggestions for their most recent flagged shift."""
+    """Full fatigue-risk analysis for one employee. Returns scores, violations,
+    and safer alternatives INSTANTLY (no AI call). The AI explanation is loaded
+    separately via the /ai-explanation endpoint."""
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
 
@@ -751,26 +751,70 @@ def employee_fatigue_risk(employee_id):
     owner = get_owner()
     eng = FatigueEngine(owner_email=owner)
     try:
-        analysis = eng.analyze_employee(employee_id, start_date, end_date)
+        # Fetch employee and shifts ONCE
+        employee = eng.get_employee(employee_id)
+        if not employee:
+            return error_response(f"Employee {employee_id} not found", 404)
+
+        shifts = eng.get_shifts_for_employee(employee_id, start_date, end_date)
+        analysis = eng.analyze_employee(employee_id, start_date, end_date, shifts=shifts, employee=employee)
         if "error" in analysis:
             return error_response(analysis["error"], 404)
 
         alternatives = []
-        if analysis["violations"]:
-            shifts = eng.get_shifts_for_employee(employee_id, start_date, end_date)
-            if shifts:
-                last_shift = shifts[-1]
-                # suggest_safer_alternatives will fetch employee itself internally once
-                alternatives = eng.suggest_safer_alternatives(
-                    employee_id, last_shift["shift_date"],
-                    last_shift["start_time"], last_shift["end_time"], last_shift.get("shift_type")
-                )
-        
+        if analysis["violations"] and shifts:
+            last_shift = shifts[-1]
+            # Pass pre-fetched employee and shifts to avoid redundant DB queries
+            alternatives = eng.suggest_safer_alternatives(
+                employee_id, last_shift["shift_date"],
+                last_shift["start_time"], last_shift["end_time"], last_shift.get("shift_type"),
+                employee=employee, existing_shifts=shifts
+            )
+    finally:
+        eng.close()
+
+    # Return immediately WITHOUT waiting for AI — ai_explanation is null
+    return jsonify({**analysis, "safer_alternatives": alternatives, "ai_explanation": None})
+
+
+@app.route("/api/employees/<employee_id>/fatigue-risk/ai-explanation", methods=["GET"])
+def employee_fatigue_ai_explanation(employee_id):
+    """Separate endpoint for the AI explanation. Called asynchronously by the
+    frontend AFTER the instant fatigue-risk data has already been rendered."""
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+
+    if not start_date and not end_date:
+        now = datetime.now(timezone.utc)
+        start_date = (now - timedelta(days=90)).strftime("%Y-%m-%d")
+        end_date = (now + timedelta(days=90)).strftime("%Y-%m-%d")
+
+    owner = get_owner()
+    eng = FatigueEngine(owner_email=owner)
+    try:
+        employee = eng.get_employee(employee_id)
+        if not employee:
+            return error_response(f"Employee {employee_id} not found", 404)
+
+        shifts = eng.get_shifts_for_employee(employee_id, start_date, end_date)
+        analysis = eng.analyze_employee(employee_id, start_date, end_date, shifts=shifts, employee=employee)
+        if "error" in analysis:
+            return error_response(analysis["error"], 404)
+
+        alternatives = []
+        if analysis["violations"] and shifts:
+            last_shift = shifts[-1]
+            alternatives = eng.suggest_safer_alternatives(
+                employee_id, last_shift["shift_date"],
+                last_shift["start_time"], last_shift["end_time"], last_shift.get("shift_type"),
+                employee=employee, existing_shifts=shifts
+            )
+
         ai_explanation = explain_fatigue_risk(analysis, alternatives)
     finally:
         eng.close()
 
-    return jsonify({**analysis, "safer_alternatives": alternatives, "ai_explanation": ai_explanation})
+    return jsonify({"ai_explanation": ai_explanation})
 
 @app.route("/api/employees/<employee_id>/schedule", methods=["GET"])
 def employee_schedule(employee_id):
